@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "supertokens.fullname" . }}
+  labels:
+    {{- include "supertokens.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "supertokens.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "supertokens.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "supertokens.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}  
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          # {{ else }} 
+          # securityContext:
+          #   readOnlyRootFilesystem: true
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- if .Values.database.schema }}
+            - name: "POSTGRESQL_TABLE_SCHEMA"
+              value: {{ quote .Values.database.schema }}
+            {{- end }}
+            {{- if .Values.database.connectionPoolSize }}
+            - name: "POSTGRESQL_CONNECTION_POOL_SIZE"
+              value: {{ quote .Values.database.connectionPoolSize }}
+            {{- end }}
+            - name: "SUPERTOKENS_PORT"
+              value: {{ quote .Values.service.port }}
+            - name: "ACCESS_TOKEN_VALIDITY"
+              value: {{ quote .Values.accessTokenValidity }}
+            - name: "ACCESS_TOKEN_BLACKLISTING"
+              value: {{ quote .Values.accessTokenBlacklisting }}
+            - name: "ACCESS_TOKEN_SIGNING_KEY_DYNAMIC"
+              value: {{ quote .Values.accessTokenSigningKeyDynamic }}
+            - name: "ACCESS_TOKEN_SIGNING_KEY_UPDATE_INTERVAL"
+              value: {{ quote .Values.accessTokenSigningKeyUpdateInterval }}
+            - name: "REFRESH_TOKEN_VALIDITY"
+              value: {{ quote .Values.refreshTokenValidity }}
+            - name: "PASSWORD_RESET_TOKEN_LIFETIME"
+              value: {{ quote .Values.passwordResetTokenLifetime }}
+            - name: "EMAIL_VERIFICATION_TOKEN_LIFETIME"
+              value: {{ quote .Values.emailVerificationTokenLifetime }}
+            - name: "PASSWORDLESS_MAX_CODE_INPUT_ATTEMPTS"
+              value: {{ quote .Values.passwordlessMaxCodeInputAttempts }}
+            - name: "PASSWORDLESS_CODE_LIFETIME"
+              value: {{ quote .Values.passwordlessCodeLifetime }}
+            - name: "BASE_PATH"
+              value: {{ quote .Values.basePath }}
+            - name: "DISABLE_TELEMETRY"
+              value: {{ quote .Values.disableTelemetry }}
+            - name: "MAX_SERVER_POOL_SIZE"
+              value: {{ quote .Values.maxServerPoolSize }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.existingSecret | default (include "supertokens.fullname" .) }}
+          ports:
+            - name: http
+              containerPort: 3567
+              protocol: TCP
+          livenessProbe: {{ .Values.livenessProbe | toYaml | nindent 12 }}
+          readinessProbe: {{ .Values.readinessProbe | toYaml | nindent 12 }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
